@@ -1,17 +1,21 @@
 " Simple script to help create colorscheme files.
 " Travis Hume
-" Fri 29 Mar 2002 09:08:44 AM PST
-" v0.05
+" Tue 02 Apr 2002 05:21:04 PM PST
+" v0.06
 "
 " v0.01 - initial release
 " v0.02 - bugfixes
 " v0.03 - allow scheme naming on commandline
 " v0.04 - protect font names with ''
 " v0.05 - add comments describing how I create and modify colorschemes
+" v0.06 - add support for Mkcolorscheme! [scheme name] -- if the ! is
+"         included then the file ~/.vim/colors/<scheme-name>.vim will
+"         automatically be written if possible.  Only works with
+"         has("unix") for now.
 "
 " 1. Drop this file into your plugin directory
 " 2. Configure your colorscheme just the way you want it
-" 3. Run Mkcolorscheme [scheme-name]
+" 3. Run Mkcolorscheme[!] [scheme-name]
 " 4. Review the generated file
 " 5. Save the scheme to your colors dir with a scheme-name.vim filename
 "
@@ -39,7 +43,7 @@ endif
 let Mkcolorscheme_defined=1
 
 
-"command! -complete=command -nargs=? Mkcolorscheme call Mkcolorscheme( <f-args> )
+command! -complete=command -nargs=? -bang Mkcolorscheme call Mkcolorscheme( "<bang>", <f-args> )
 function! Mkcolorscheme( ... )
     " grag the current highlight defs
     redir @"
@@ -58,15 +62,38 @@ function! Mkcolorscheme( ... )
     silent! %s/font=\(.*\)/font='\1'/   " some fonts have spaces in their names
                                         " so we need to protect the font name
 
+    if a:0 == 0
+        let getName = 1
+        let doWrite = 0
+    elseif a:0 == 1
+        if a:1 == "!"
+            let getName = 1
+            let doWrite = 1
+        else
+            let name = a:1
+            let getName = 1
+            let doWrite = 0
+        endif
+    elseif a:0 == 2
+        if a:1 == "!"
+            let name = a:2
+            let getName = 0
+            let doWrite = 1
+        else
+            let name = a:1
+            let getName = 0
+            let doWrite = 0
+        endif
+    endif
+
+    if getName == 1
+        let name = input( "scheme name? " )
+    endif
+
+
     " append some stuff at the beginning to set the value of background
     " and clear the current highlighting.  Taken from colorscheme scripts
     " distributed with Vim v6.0av
-
-    if a:0 == 0 " if we weren't passed in a scheme name, ask for one
-        let name = input( "scheme name? " )
-    else
-        let name = a:1
-    endif
     call append( 0, "set background=".&background )
     call append( 1, "highlight clear" )
     call append( 2, "if exists( \"syntax_on\" )" )
@@ -74,5 +101,11 @@ function! Mkcolorscheme( ... )
     call append( 4, "endif" )
     call append( 5, "let g:colors_name=\"".name."\"" )
     call append( 6, "" )
+
+    let colors_dir = expand("$HOME")."/.vim/colors"
+    if doWrite == 1 && has("unix") && filewritable( colors_dir ) == 2
+        execute "w! ".colors_dir."/".name.".vim"
+        bd
+    endif
 endfunction
 
